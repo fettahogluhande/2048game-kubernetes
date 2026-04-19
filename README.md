@@ -80,11 +80,9 @@ NAME                CLASS   HOSTS        ADDRESS     PORTS   AGE
 game-2048-ingress   nginx   2048.local   localhost   80      83s
 ```
 
-<<<<<<< HEAD
-2048.local'e erişebilmek için etc/hostumda 127.0.0.1 e kayıt açtım ve uygulamaya erişebildim
+2048.local'e erişebilmek için etc/host'umda 127.0.0.1 e kayıt açtım ve uygulamaya erişebildim
 
 Genel yapı aşağıdaki şekildedir.
-
 
 
 ```
