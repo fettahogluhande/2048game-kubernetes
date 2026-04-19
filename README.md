@@ -1,100 +1,89 @@
 # migrosone-2048case
 
-2048 on Kubernetes (KIND)
-Play the classic 2048 game running inside a local Kubernetes cluster, accessible at http://2048.local.
+İlk aşamada open source olarak bulduğum 2048 oyununu aşağıdaki github linkinden cloneladım.
 
-What's Inside
-2048-k8s/
-├── Dockerfile            # nginx:alpine serving the 2048 static app
-├── nginx.conf            # minimal nginx config
-├── app/                  # 2048 source code (gabrielecirulli/2048)
-└── k8s/
-    ├── kind-config.yaml  # KIND cluster config with port mapping
-    ├── deployment.yaml   # Kubernetes Deployment
-    ├── svc.yaml          # Kubernetes Service (ClusterIP)
-    └── ingress.yaml      # Kubernetes Ingress (2048.local → pod)
-
-Prerequisites
-Install these before you start:
-ToolInstallCheckDocker Desktopdocker.com/products/docker-desktopdocker --versionKINDbrew install kindkind --versionkubectlbrew install kubectlkubectl version --clientGitbrew install gitgit --version
-
-macOS only: This guide uses Homebrew. Install it from brew.sh if you don't have it.
+git clone https://github.com/gabrielecirulli/2048.git app
 
 
-Step-by-Step Setup
-1. Clone this repo
-bashgit clone https://github.com/YOUR_USERNAME/2048-k8s.git
-cd 2048-k8s
-2. Get the 2048 source code
-bashgit clone https://github.com/gabrielecirulli/2048.git app
-rm -rf app/.git
-3. Build the Docker image
-bashdocker build -t 2048:latest .
-4. Create the KIND cluster
-bashkind create cluster --config k8s/kind-config.yaml --name 2048-cluster
-This creates a local Kubernetes cluster with port 80 mapped to your machine.
-5. Load the image into the cluster
-bashkind load docker-image 2048:latest --name 2048-cluster
+ikinci olarak bir dockerfile yazarak uygulamayı kubernetes de çlışabilecek bir container haline çevirdim , kubernetes birçok  containerın birarada çalışmasını sağladığı için burada da buna ihtiyacım vardı.
 
-Without this step, Kubernetes can't find the image — it would try to pull from Docker Hub and fail.
 
-6. Install NGINX Ingress Controller
-bashkubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-Wait for it to be ready:
-bashkubectl wait --namespace ingress-nginx \
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=90s
-7. Deploy the app
-bashkubectl create namespace 2048
-kubectl apply -f k8s/deployment.yaml -n 2048
-kubectl apply -f k8s/svc.yaml -n 2048
-kubectl apply -f k8s/ingress.yaml -n 2048
-8. Add the local domain to /etc/hosts
-bashecho "127.0.0.1  2048.local" | sudo tee -a /etc/hosts
-9. Open the game 🎮
-Open your browser and go to:
-http://2048.local
+Uygulamanın yayın yaparak web de açılması için nginx e ihtiyacım vardı basit bir conf ile bunu sağladım.
 
-Verify Everything is Running
-bashkubectl get pods -n 2048      # STATUS should be Running
-kubectl get svc -n 2048       # game-2048-svc should appear
-kubectl get ingress -n 2048   # ADDRESS should be localhost
+Sonrasında Dokerfile ve nginx.conf ile docker build alarak latest tag'ı ile imagı mı oluşturdum
 
-Stopping & Starting
-Stop (delete the cluster)
-bashkind delete cluster --name 2048-cluster
-This removes the cluster but keeps your files and Docker image intact.
-Start again
-bashkind create cluster --config k8s/kind-config.yaml --name 2048-cluster
-kind load docker-image 2048:latest --name 2048-cluster
+docker build -t 2048:latest .
+
+
+Sonrasında kuberntes tarafındaki işlemlere başladım.
+
+öncelikle bir cluster a ihtiyacım vardı tek node'lu bir cluster işimi görecekti bu yüzden 2048-cluster adında bir cluster config yazdım ve apply ettim
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+
+
+
+handefettahoglu@Hande-MacBook-Air 2048-k8s % kubectl get no
+NAME                         STATUS   ROLES           AGE   VERSION
+2048-cluster-control-plane   Ready    control-plane   48s   v1.35.0
+
+
+
+Daha sonra oluşturduğum image'ı bu node'a vermem gerkiyordu 
+
+handefettahoglu@Hande-MacBook-Air 2048-k8s % kind load docker-image 2048:latest --name 2048-cluster
+Image: "2048:latest" with ID "sha256:d72af2fc5a58a65dc003b1e935ed65dc034696e03a30cf769338adb6ecfbbe34" not yet present on node "2048-cluster-control-plane", loading...
+
+
+Kubernetes de bir uygulamanın çalışabilmesi için deployment service ve erişilebilir olması için ingress e ihtiyacımvardı bunların depploymentlarını hazırladım
+
+ingress-nginx namespace'ine aşağıdaki komutla kurulum yaptım
+
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-kubectl create namespace 2048
-kubectl apply -f k8s/deployment.yaml -n 2048
-kubectl apply -f k8s/svc.yaml -n 2048
-kubectl apply -f k8s/ingress.yaml -n 2048
-Remove the local domain entry (optional)
-bashsudo sed -i '' '/2048.local/d' /etc/hosts
 
-How It Works
-Browser (http://2048.local)
-        │
-        ▼
-  /etc/hosts  →  127.0.0.1
-        │
-        ▼
-  KIND cluster (port 80)
-        │
-        ▼
-  NGINX Ingress Controller
-        │
-        ▼
-  Service (ClusterIP)
-        │
-        ▼
-  Pod (nginx:alpine + 2048 app)
+Sonrasında oluşturduğum deploy service ve ingress yamlları sırayla 2048 namespace'ine apply ettim.
 
-Dockerfile — packages the 2048 static files into an nginx container
-KIND — runs a full Kubernetes cluster locally inside Docker
-Ingress — routes 2048.local traffic to the correct pod
-/etc/hosts — makes your Mac resolve 2048.local to 127.0.0.1
+
+handefettahoglu@Hande-MacBook-Air k8s % kubectl get pods -n 2048
+NAME                         READY   STATUS    RESTARTS   AGE
+game-2048-54ccdf4794-455qw   1/1     Running   0          34s
+handefettahoglu@Hande-MacBook-Air k8s % kubectl get svc -n 2048 
+NAME            TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+game-2048-svc   ClusterIP   10.96.125.51   <none>        80/TCP    29s
+handefettahoglu@Hande-MacBook-Air k8s % kubectl get deploy -n 2048
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE
+game-2048   1/1     1            1           48s
+handefettahoglu@Hande-MacBook-Air k8s % kubectl get ingress -n 2048
+NAME                CLASS   HOSTS        ADDRESS     PORTS   AGE
+game-2048-ingress   nginx   2048.local   localhost   80      83s
+
+
+2048.locale erişebilmek için etc/hostumda 127.0.0.1 e kayıt açtım ve uygulamaya erişebildim
+
+Genel yapı aşağıdaki şekildedir.
+
+2048-k8s/
+├── Dockerfile            
+├── nginx.conf            
+├── app/                  
+└── k8s/
+    ├── kind-config.yaml  
+    ├── deployment.yaml   
+    ├── svc.yaml          
+    └── ingress.yaml      
+
+
+![architecture](image.png)
