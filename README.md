@@ -2,8 +2,10 @@
 
 İlk aşamada open source olarak bulduğum 2048 oyununu aşağıdaki github linkinden cloneladım.
 
-git clone https://github.com/gabrielecirulli/2048.git app
 
+```
+git clone https://github.com/gabrielecirulli/2048.git app
+```
 
 ikinci olarak bir dockerfile yazarak uygulamayı kubernetes de çlışabilecek bir container haline çevirdim , kubernetes birçok  containerın birarada çalışmasını sağladığı için burada da buna ihtiyacım vardı.
 
@@ -12,13 +14,15 @@ Uygulamanın yayın yaparak web de açılması için nginx e ihtiyacım vardı b
 
 Sonrasında Dokerfile ve nginx.conf ile docker build alarak latest tag'ı ile imagı mı oluşturdum
 
+```
 docker build -t 2048:latest .
-
+```
 
 Sonrasında kuberntes tarafındaki işlemlere başladım.
 
 öncelikle bir cluster a ihtiyacım vardı tek node'lu bir cluster işimi görecekti bu yüzden 2048-cluster adında bir cluster config yazdım ve apply ettim
 
+```
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -33,48 +37,58 @@ nodes:
       - containerPort: 80
         hostPort: 80
         protocol: TCP
+```
 
 
-
+```
 handefettahoglu@Hande-MacBook-Air 2048-k8s % kubectl get no
 NAME                         STATUS   ROLES           AGE   VERSION
 2048-cluster-control-plane   Ready    control-plane   48s   v1.35.0
-
+```
 
 
 Daha sonra oluşturduğum image'ı bu node'a vermem gerkiyordu 
 
+```
 handefettahoglu@Hande-MacBook-Air 2048-k8s % kind load docker-image 2048:latest --name 2048-cluster
 Image: "2048:latest" with ID "sha256:d72af2fc5a58a65dc003b1e935ed65dc034696e03a30cf769338adb6ecfbbe34" not yet present on node "2048-cluster-control-plane", loading...
-
+```
 
 Kubernetes de bir uygulamanın çalışabilmesi için deployment service ve erişilebilir olması için ingress e ihtiyacımvardı bunların depploymentlarını hazırladım
 
 ingress-nginx namespace'ine aşağıdaki komutla kurulum yaptım
 
+```
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+```
 
 Sonrasında oluşturduğum deploy service ve ingress yamlları sırayla 2048 namespace'ine apply ettim.
 
-
+```
 handefettahoglu@Hande-MacBook-Air k8s % kubectl get pods -n 2048
 NAME                         READY   STATUS    RESTARTS   AGE
 game-2048-54ccdf4794-455qw   1/1     Running   0          34s
+```
+```
 handefettahoglu@Hande-MacBook-Air k8s % kubectl get svc -n 2048 
 NAME            TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
 game-2048-svc   ClusterIP   10.96.125.51   <none>        80/TCP    29s
+```
+```
 handefettahoglu@Hande-MacBook-Air k8s % kubectl get deploy -n 2048
 NAME        READY   UP-TO-DATE   AVAILABLE   AGE
 game-2048   1/1     1            1           48s
+```
+```
 handefettahoglu@Hande-MacBook-Air k8s % kubectl get ingress -n 2048
 NAME                CLASS   HOSTS        ADDRESS     PORTS   AGE
 game-2048-ingress   nginx   2048.local   localhost   80      83s
-
+```
 
 2048.locale erişebilmek için etc/hostumda 127.0.0.1 e kayıt açtım ve uygulamaya erişebildim
 
 Genel yapı aşağıdaki şekildedir.
-
+```
 2048-k8s/
 ├── Dockerfile            
 ├── nginx.conf            
@@ -84,6 +98,6 @@ Genel yapı aşağıdaki şekildedir.
     ├── deployment.yaml   
     ├── svc.yaml          
     └── ingress.yaml      
-
+```
 
 ![architecture](image.png)
