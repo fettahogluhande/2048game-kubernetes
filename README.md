@@ -37,7 +37,6 @@ nodes:
         protocol: TCP
 ```
 
-
 ```
 handefettahoglu@Hande-MacBook-Air 2048-k8s % kubectl get no
 NAME                         STATUS   ROLES           AGE   VERSION
@@ -49,7 +48,7 @@ Kind cluster local Docker image'ları direkt görmediği için image manuel olar
 ```
 handefettahoglu@Hande-MacBook-Air 2048-k8s % kind load docker-image 2048:latest --name 2048-cluster
 Image: "2048:latest" with ID "sha256:d72af2fc5a58a65dc003b1e935ed65dc034696e03a30cf769338adb6ecfbbe34" not yet present on node "2048-cluster-control-plane", loading...
-
+```
 
 ingress-nginx namespace'ine aşağıdaki komutla kurulum yaptım
 
@@ -64,6 +63,7 @@ handefettahoglu@Hande-MacBook-Air k8s % kubectl get pods -n 2048
 NAME                         READY   STATUS    RESTARTS   AGE
 game-2048-54ccdf4794-455qw   1/1     Running   0          34s
 ```
+
 ```
 handefettahoglu@Hande-MacBook-Air k8s % kubectl get svc -n 2048 
 NAME            TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
@@ -74,6 +74,7 @@ handefettahoglu@Hande-MacBook-Air k8s % kubectl get deploy -n 2048
 NAME        READY   UP-TO-DATE   AVAILABLE   AGE
 game-2048   1/1     1            1           48s
 ```
+
 ```
 handefettahoglu@Hande-MacBook-Air k8s % kubectl get ingress -n 2048
 NAME                CLASS   HOSTS        ADDRESS     PORTS   AGE
@@ -83,7 +84,6 @@ game-2048-ingress   nginx   2048.local   localhost   80      83s
 2048.local'e erişebilmek için etc/host'umda 127.0.0.1 e kayıt açtım ve uygulamaya erişebildim
 
 Genel yapı aşağıdaki şekildedir.
-
 
 ```
 2048-k8s/
